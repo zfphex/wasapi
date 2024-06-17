@@ -6,19 +6,13 @@ use makepad_windows::Win32::Media::Audio::{IMMDeviceEnumerator, MMDeviceEnumerat
 use makepad_windows::Win32::System::Com::STGM_READ;
 use makepad_windows::Win32::System::Variant::VT_LPWSTR;
 
-#[repr(transparent)]
-#[derive(Copy, Clone, Default, Eq, PartialEq)]
-#[must_use]
-#[allow(non_camel_case_types)]
-pub struct HRESULT(pub i32);
-
 //TODO: Change the error type from i32 to something more useful.
-pub trait WinResult {
-    fn into_result(self) -> Result<(), i32>;
+pub trait WinResultEmpty {
+    fn ok(self) -> Result<(), i32>;
 }
 
-impl WinResult for i32 {
-    fn into_result(self) -> Result<(), i32> {
+impl WinResultEmpty for i32 {
+    fn ok(self) -> Result<(), i32> {
         if self >= 0 {
             Ok(())
         } else {
@@ -31,20 +25,25 @@ impl WinResult for i32 {
 /// `let out = null_mut(); let result = fn(&mut out);`
 ///  into
 /// `Result<out, result>`
-pub const fn check<T>(result: i32, t: *mut T) -> Result<T, i32> {
-    if result >= 0 {
-        unsafe { Ok(std::mem::transmute_copy(&t)) }
-    } else {
-        Err(result)
+pub trait WinResult<T> {
+    fn ok_ptr(self, t: *mut T) -> Result<T, i32>;
+}
+
+impl<T> WinResult<T> for i32 {
+    fn ok_ptr(self, t: *mut T) -> Result<T, i32> {
+        if self >= 0 {
+            unsafe { Ok(std::mem::transmute_copy(&t)) }
+        } else {
+            Err(self)
+        }
     }
 }
 
 pub mod com {
     #![allow(unused)]
+    use crate::*;
     use core::{ffi::c_void, mem::transmute, ptr::null_mut};
     use makepad_windows::core::GUID;
-
-    use crate::mkpad::{check, WinResult};
 
     #[link(name = "ole32")]
     extern "system" {}
@@ -100,7 +99,7 @@ pub mod com {
         extern "system" {
             fn CoInitializeEx(pvReserved: *mut std::ffi::c_void, dwCoInit: u32) -> i32;
         }
-        CoInitializeEx(null_mut(), transmute(model)).into_result()
+        CoInitializeEx(null_mut(), transmute(model)).ok()
     }
 
     pub unsafe fn CoCreateInstance<T>(
@@ -117,18 +116,15 @@ pub mod com {
                 ppv: *mut *mut c_void,
             ) -> i32;
         }
-
         let mut out = std::ptr::null_mut();
-        check(
-            CoCreateInstance(
-                class_id,
-                null_mut(),
-                transmute(context),
-                interface_id,
-                &mut out,
-            ),
-            out as *mut T,
+        CoCreateInstance(
+            class_id,
+            null_mut(),
+            transmute(context),
+            interface_id,
+            &mut out,
         )
+        .ok_ptr(out as *mut T)
     }
 }
 
