@@ -124,9 +124,22 @@ pub mod audio_endpoints {
 
     #[repr(u32)]
     #[derive(Debug)]
+    /// Windows has a feature called 'communication devices', this allows you to set a different input and output devices
+    /// when using communication software.
+    /// This feature is essentially useless and isn't used in programs like Discord.
+    /// I have never seen any mention of 'multimedia devices' in windows.
+    /// It's also important to note that the *new* Windows 10 settings doesn't have any options to set device roles.
+    /// My guess it was implemented in Windows 7 and immediatly abandoned, and since Microsoft doesn't change it's API ever,
+    /// we're stuck writing pointless code.
+    ///
+    /// https://learn.microsoft.com/en-us/windows/win32/api/mmdeviceapi/ne-mmdeviceapi-erole
+    /// https://learn.microsoft.com/en-us/windows/win32/coreaudio/device-roles-in-windows-vista
     pub enum Role {
+        /// Games, system notification sounds, and voice commands.
         Console = 0,
+        /// Music, movies, narration, and live music recording.
         Multimedia = 1,
+        /// Voice communications (talking to another person).
         Communications = 2,
     }
 
@@ -196,8 +209,8 @@ pub mod audio_endpoints {
     impl IMMDeviceEnumerator {
         #[inline]
         pub unsafe fn vtable(&self) -> (*mut c_void, &IMMDeviceEnumeratorVtbl) {
-            let raw: *mut c_void = transmute_copy(self);
-            (raw, (&**(raw as *mut *mut IMMDeviceEnumeratorVtbl)))
+            let this: *mut c_void = transmute_copy(self);
+            (this, (&**(this as *mut *mut IMMDeviceEnumeratorVtbl)))
         }
 
         #[inline]
@@ -207,8 +220,8 @@ pub mod audio_endpoints {
             device_state: DeviceState,
         ) -> Result<IMMDeviceCollection, i32> {
             let mut devices = core::mem::zeroed();
-            let (raw, vtable) = self.vtable();
-            (vtable.EnumAudioEndpoints)(raw, dataFlow, device_state, &mut devices)
+            let (this, vtable) = self.vtable();
+            (vtable.EnumAudioEndpoints)(this, dataFlow, device_state, &mut devices)
                 .into_result(devices)
         }
 
@@ -219,15 +232,15 @@ pub mod audio_endpoints {
             role: Role,
         ) -> Result<IMMDevice, i32> {
             let mut device = core::mem::zeroed();
-            let (raw, vtable) = self.vtable();
-            (vtable.GetDefaultAudioEndpoint)(raw, dataFlow, role, &mut device).into_result(device)
+            let (this, vtable) = self.vtable();
+            (vtable.GetDefaultAudioEndpoint)(this, dataFlow, role, &mut device).into_result(device)
         }
 
         #[inline]
         pub unsafe fn GetDevice(&self, str_id: *const u16) -> Result<IMMDevice, i32> {
             let mut device = core::mem::zeroed();
-            let (raw, vtable) = self.vtable();
-            (vtable.GetDevice)(raw, str_id, &mut device).into_result(device)
+            let (this, vtable) = self.vtable();
+            (vtable.GetDevice)(this, str_id, &mut device).into_result(device)
         }
 
         // #[inline]
@@ -290,7 +303,7 @@ pub mod audio_endpoints {
     pub struct IMMDevice(*mut c_void);
 
     impl IMMDevice {
-        pub fn device_name(&self) -> makepad_windows::core::Result<String> {
+        pub fn name(&self) -> makepad_windows::core::Result<String> {
             unsafe {
                 //TODO: Error propagation is not working here. Need to write result types :/.
                 let store = self.OpenPropertyStore(StorageAccessMode::Read).unwrap();
@@ -303,8 +316,8 @@ pub mod audio_endpoints {
 
         #[inline]
         pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceVtbl) {
-            let raw: *mut IMMDevice = transmute_copy(self);
-            (raw, (&**(raw as *mut *mut IMMDeviceVtbl)))
+            let this: *mut IMMDevice = transmute_copy(self);
+            (this, (&**(this as *mut *mut IMMDeviceVtbl)))
         }
 
         // #[inline]
@@ -330,8 +343,8 @@ pub mod audio_endpoints {
             access_mode: StorageAccessMode,
         ) -> Result<IPropertyStore, i32> {
             let mut properties = core::mem::zeroed();
-            let (raw, vtable) = self.vtable();
-            (vtable.OpenPropertyStore)(raw, access_mode, &mut properties).into_result(properties)
+            let (this, vtable) = self.vtable();
+            (vtable.OpenPropertyStore)(this, access_mode, &mut properties).into_result(properties)
         }
 
         // #[inline]
@@ -365,22 +378,22 @@ pub mod audio_endpoints {
     impl IMMDeviceCollection {
         #[inline]
         pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceCollectionVtbl) {
-            let raw: *mut IMMDeviceCollection = transmute_copy(self);
-            (raw, (&**(raw as *mut *mut IMMDeviceCollectionVtbl)))
+            let this: *mut IMMDeviceCollection = transmute_copy(self);
+            (this, (&**(this as *mut *mut IMMDeviceCollectionVtbl)))
         }
 
         #[inline]
         pub unsafe fn GetCount(&self) -> makepad_windows::core::Result<u32> {
-            let (raw, vtable) = self.vtable();
+            let (this, vtable) = self.vtable();
             let mut device_count = core::mem::zeroed();
-            (vtable.GetCount)(raw, &mut device_count).from_abi(device_count)
+            (vtable.GetCount)(this, &mut device_count).from_abi(device_count)
         }
 
         #[inline]
         pub unsafe fn Item(&self, device_index: u32) -> Result<IMMDevice, i32> {
-            let (raw, vtable) = self.vtable();
+            let (this, vtable) = self.vtable();
             let mut device = core::mem::zeroed();
-            (vtable.Item)(raw, device_index, &mut device).into_result(device)
+            (vtable.Item)(this, device_index, &mut device).into_result(device)
         }
     }
 }
@@ -406,14 +419,12 @@ pub unsafe fn mkpad() {
         .EnumAudioEndpoints(DataFlow::All, DeviceState::Active)
         .unwrap();
 
-    let devices: Vec<(String, IMMDevice)> = (0..collection.GetCount().unwrap())
-        .map(|i| {
-            let device = collection.Item(i).unwrap();
-            let name = device.device_name().unwrap();
-            (name, device)
-        })
+    let devices: Vec<IMMDevice> = (0..collection.GetCount().unwrap())
+        .map(|i| collection.Item(i).unwrap())
         .collect();
 
-    let default = (default.device_name(), default);
-    dbg!(devices, default);
+    println!("Default: {}", default.name().unwrap());
+    for device in devices {
+        println!("{}", device.name().unwrap());
+    }
 }
