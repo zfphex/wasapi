@@ -96,16 +96,18 @@ pub mod com {
 }
 
 pub mod audio_endpoints {
+    use crate::*;
     use core::{ffi::c_void, mem::transmute_copy};
     use makepad_windows::{
         core::{GUID, HRESULT},
         Win32::{
-            Media::Audio::{IMMDeviceCollection, IMMNotificationClient},
-            System::Com::StructuredStorage::PROPVARIANT,
+            Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
+            Media::Audio::IMMNotificationClient,
+            System::{Com::StructuredStorage::PROPVARIANT, Variant::VT_LPWSTR},
             UI::Shell::PropertiesSystem::IPropertyStore,
         },
     };
-    // use makepad_windows::core::Result
+    use std::ptr::{addr_of_mut, null_mut};
 
     pub const CLSID_MM_DEVICE_ENUMERATOR: GUID =
         GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
@@ -273,17 +275,34 @@ pub mod audio_endpoints {
         pub GetState: unsafe extern "system" fn(this: *mut IMMDevice, state: *mut u32) -> i32,
     }
 
-    use super::WindowsResult;
-
-    pub const STGM_READ: u32 = 0;
+    // #[repr(C)]
+    // pub struct PROPERTYKEY {
+    //     pub fmtid: GUID,
+    //     pub pid: u32,
+    // }
+    // pub const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
+    //     fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0),
+    //     pid: 14,
+    // };
 
     #[repr(transparent)]
     #[derive(Debug)]
     pub struct IMMDevice(*mut c_void);
 
     impl IMMDevice {
+        pub fn device_name(&self) -> makepad_windows::core::Result<String> {
+            unsafe {
+                //TODO: Error propagation is not working here. Need to write result types :/.
+                let store = self.OpenPropertyStore(StorageAccessMode::Read).unwrap();
+                let prop = store.GetValue(&PKEY_Device_FriendlyName)?;
+                assert!(prop.Anonymous.Anonymous.vt == VT_LPWSTR);
+                let data = prop.Anonymous.Anonymous.Anonymous.pwszVal;
+                Ok(data.to_string()?)
+            }
+        }
+
         #[inline]
-        pub unsafe fn vtable(&self) -> (*mut IMMDevice, &IMMDeviceVtbl) {
+        pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceVtbl) {
             let raw: *mut IMMDevice = transmute_copy(self);
             (raw, (&**(raw as *mut *mut IMMDeviceVtbl)))
         }
@@ -324,6 +343,46 @@ pub mod audio_endpoints {
         //     ((*self.lpVtbl).GetState)(self as *const _ as *mut _, pdwState)
         // }
     }
+
+    #[repr(C)]
+    pub struct IMMDeviceCollectionVtbl {
+        pub parent: IUnknownVtbl,
+        pub GetCount: unsafe extern "system" fn(
+            this: *mut IMMDeviceCollection,
+            device_count: *const u32,
+        ) -> HRESULT,
+        pub Item: unsafe extern "system" fn(
+            this: *mut IMMDeviceCollection,
+            device_index: u32,
+            device: *mut *mut IMMDevice,
+        ) -> HRESULT,
+    }
+
+    #[repr(transparent)]
+    #[derive(Debug)]
+    pub struct IMMDeviceCollection(*mut c_void);
+
+    impl IMMDeviceCollection {
+        #[inline]
+        pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceCollectionVtbl) {
+            let raw: *mut IMMDeviceCollection = transmute_copy(self);
+            (raw, (&**(raw as *mut *mut IMMDeviceCollectionVtbl)))
+        }
+
+        #[inline]
+        pub unsafe fn GetCount(&self) -> makepad_windows::core::Result<u32> {
+            let (raw, vtable) = self.vtable();
+            let mut device_count = core::mem::zeroed();
+            (vtable.GetCount)(raw, &mut device_count).from_abi(device_count)
+        }
+
+        #[inline]
+        pub unsafe fn Item(&self, device_index: u32) -> Result<IMMDevice, i32> {
+            let (raw, vtable) = self.vtable();
+            let mut device = core::mem::zeroed();
+            (vtable.Item)(raw, device_index, &mut device).into_result(device)
+        }
+    }
 }
 
 pub unsafe fn mkpad() {
@@ -344,29 +403,17 @@ pub unsafe fn mkpad() {
         .unwrap();
 
     let collection = enumerator
-        .EnumAudioEndpoints(DataFlow::Render, DeviceState::Active)
+        .EnumAudioEndpoints(DataFlow::All, DeviceState::Active)
         .unwrap();
 
-    // dbg!(default);
+    let devices: Vec<(String, IMMDevice)> = (0..collection.GetCount().unwrap())
+        .map(|i| {
+            let device = collection.Item(i).unwrap();
+            let name = device.device_name().unwrap();
+            (name, device)
+        })
+        .collect();
 
-    pub unsafe fn device_name(device: &IMMDevice) -> String {
-        let store = device.OpenPropertyStore(StorageAccessMode::Read).unwrap();
-        let prop = store.GetValue(&PKEY_Device_FriendlyName).unwrap();
-        assert!(prop.Anonymous.Anonymous.vt == VT_LPWSTR);
-        let data = prop.Anonymous.Anonymous.Anonymous.pwszVal;
-        data.to_string().unwrap()
-    }
-
-    // let devices: Vec<(String, IMMDevice)> = (0..collection.GetCount().unwrap())
-    //     .map(|i| {
-    //         let device = collection.Item(i).unwrap();
-    //         let name = device_name(&device);
-    //         (name, device)
-    //     })
-    //     .collect();
-
-    let default = (device_name(&default), default);
-    dbg!(default);
-
-    // dbg!(devices, default);
+    let default = (default.device_name(), default);
+    dbg!(devices, default);
 }

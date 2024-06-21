@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 
-use winapi::um::mmdeviceapi::{IMMDevice, IMMDeviceEnumerator};
+use winapi::um::mmdeviceapi::{IMMDevice, IMMDeviceCollection, IMMDeviceEnumerator};
 
 unsafe fn winapi() {
     use winapi::{
