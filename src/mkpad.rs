@@ -10,9 +10,6 @@ pub mod com {
     use core::{ffi::c_void, mem::transmute, ptr::null_mut};
     use makepad_windows::core::GUID;
 
-    #[link(name = "ole32")]
-    extern "system" {}
-
     ///https://learn.microsoft.com/en-us/windows/win32/api/objbase/ne-objbase-coinit
     #[repr(u32)]
     #[derive(Debug)]
@@ -91,7 +88,7 @@ pub mod com {
             interface_id,
             &mut out,
         )
-        .into_result(out)
+        .as_result(out)
     }
 }
 
@@ -222,7 +219,7 @@ pub mod audio_endpoints {
             let mut devices = core::mem::zeroed();
             let (this, vtable) = self.vtable();
             (vtable.EnumAudioEndpoints)(this, dataFlow, device_state, &mut devices)
-                .into_result(devices)
+                .as_result(devices)
         }
 
         #[inline]
@@ -233,14 +230,14 @@ pub mod audio_endpoints {
         ) -> Result<IMMDevice, i32> {
             let mut device = core::mem::zeroed();
             let (this, vtable) = self.vtable();
-            (vtable.GetDefaultAudioEndpoint)(this, dataFlow, role, &mut device).into_result(device)
+            (vtable.GetDefaultAudioEndpoint)(this, dataFlow, role, &mut device).as_result(device)
         }
 
         #[inline]
         pub unsafe fn GetDevice(&self, str_id: *const u16) -> Result<IMMDevice, i32> {
             let mut device = core::mem::zeroed();
             let (this, vtable) = self.vtable();
-            (vtable.GetDevice)(this, str_id, &mut device).into_result(device)
+            (vtable.GetDevice)(this, str_id, &mut device).as_result(device)
         }
 
         // #[inline]
@@ -299,7 +296,7 @@ pub mod audio_endpoints {
     // };
 
     #[repr(transparent)]
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct IMMDevice(*mut c_void);
 
     impl IMMDevice {
@@ -344,13 +341,14 @@ pub mod audio_endpoints {
         ) -> Result<IPropertyStore, i32> {
             let mut properties = core::mem::zeroed();
             let (this, vtable) = self.vtable();
-            (vtable.OpenPropertyStore)(this, access_mode, &mut properties).into_result(properties)
+            (vtable.OpenPropertyStore)(this, access_mode, &mut properties).as_result(properties)
         }
 
         // #[inline]
         // pub unsafe fn GetId(&self, ppstrId: *mut LPWSTR) -> HRESULT {
         //     ((*self.lpVtbl).GetId)(self as *const _ as *mut _, ppstrId)
         // }
+
         // #[inline]
         // pub unsafe fn GetState(&self, pdwState: *mut DWORD) -> HRESULT {
         //     ((*self.lpVtbl).GetState)(self as *const _ as *mut _, pdwState)
@@ -367,7 +365,7 @@ pub mod audio_endpoints {
         pub Item: unsafe extern "system" fn(
             this: *mut IMMDeviceCollection,
             device_index: u32,
-            device: *mut *mut IMMDevice,
+            device: *mut *mut c_void,
         ) -> HRESULT,
     }
 
@@ -383,17 +381,17 @@ pub mod audio_endpoints {
         }
 
         #[inline]
-        pub unsafe fn GetCount(&self) -> makepad_windows::core::Result<u32> {
+        pub unsafe fn GetCount(&self) -> Result<u32, i32> {
             let (this, vtable) = self.vtable();
             let mut device_count = core::mem::zeroed();
-            (vtable.GetCount)(this, &mut device_count).from_abi(device_count)
+            (vtable.GetCount)(this, &mut device_count).as_result_owned(device_count)
         }
 
         #[inline]
         pub unsafe fn Item(&self, device_index: u32) -> Result<IMMDevice, i32> {
             let (this, vtable) = self.vtable();
             let mut device = core::mem::zeroed();
-            (vtable.Item)(this, device_index, &mut device).into_result(device)
+            (vtable.Item)(this, device_index, &mut device).as_result(device)
         }
     }
 }
