@@ -1,10 +1,6 @@
 use crate::*;
 use makepad_windows::core::{GUID, HRESULT};
 
-pub const CLSID_MM_DEVICE_ENUMERATOR: GUID =
-    GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
-pub const IID_IMM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
-
 #[repr(u32)]
 #[derive(Debug)]
 pub enum DataFlow {
@@ -96,6 +92,12 @@ pub struct IMMDeviceEnumeratorVtbl {
         unsafe extern "system" fn(this: *mut c_void, client: *mut c_void) -> HRESULT,
 }
 
+//I'm thinking of removindg the `Id` trait and the constants.
+//They are essentially meaningless and are never used outside of creation.
+pub const CLSID_MM_DEVICE_ENUMERATOR: GUID =
+    GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
+pub const IID_IMM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
+
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct IMMDeviceEnumerator(*mut c_void);
@@ -114,12 +116,13 @@ impl IMMDeviceEnumerator {
     pub fn new() -> Result<Self, i32> {
         unsafe {
             CoCreateInstance(
-                &CLSID_MM_DEVICE_ENUMERATOR,
+                const { &GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e) },
                 ExecutionContext::All,
-                &IID_IMM_DEVICE_ENUMERATOR,
+                const { &GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6) },
             )
         }
     }
+
     #[inline]
     pub unsafe fn vtable(&self) -> (*mut c_void, &IMMDeviceEnumeratorVtbl) {
         let this: *mut c_void = transmute_copy(self);
@@ -164,7 +167,6 @@ impl IMMDeviceEnumerator {
     //     //     self as *const _ as *mut _,
     //     //     pClient,
     //     // )
-    //     todo!()
     // }
 
     // #[inline]
@@ -176,7 +178,6 @@ impl IMMDeviceEnumerator {
     //     //     self as *const _ as *mut _,
     //     //     pClient,
     //     // )
-    //     todo!()
     // }
 }
 

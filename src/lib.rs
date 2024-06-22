@@ -14,23 +14,9 @@ pub use mmdevice::*;
 pub use propvariant::*;
 
 pub use core::ffi::c_void;
-pub use core::mem::{transmute, transmute_copy, zeroed};
+pub use core::mem::{transmute, transmute_copy};
 
 //TODO: Change the error type from i32 to something more useful.
-pub trait WindowsResultEmpty {
-    fn ok(self) -> Result<(), i32>;
-}
-
-impl WindowsResultEmpty for i32 {
-    fn ok(self) -> Result<(), i32> {
-        if self >= 0 {
-            Ok(())
-        } else {
-            Err(self)
-        }
-    }
-}
-
 pub trait WindowsResult {
     fn as_result<T, P>(self, pointer: *mut P) -> Result<T, i32>;
     fn as_result_owned<T>(self, owned: T) -> Result<T, i32>;
@@ -39,7 +25,7 @@ pub trait WindowsResult {
 impl WindowsResult for i32 {
     fn as_result<T, P>(self, pointer: *mut P) -> Result<T, i32> {
         if self >= 0 {
-            unsafe { Ok(std::mem::transmute_copy(&(pointer as *mut T))) }
+            unsafe { Ok(transmute_copy(&(pointer as *mut T))) }
         } else {
             Err(self)
         }

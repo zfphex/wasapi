@@ -54,7 +54,7 @@ pub unsafe fn CoInitializeEx(model: ConcurrencyModel) -> Result<(), i32> {
     extern "system" {
         fn CoInitializeEx(pvReserved: *mut std::ffi::c_void, dwCoInit: u32) -> i32;
     }
-    CoInitializeEx(zeroed(), transmute(model)).ok()
+    CoInitializeEx(core::mem::zeroed(), transmute(model)).as_result_owned(())
 }
 
 pub unsafe fn CoCreateInstance<T>(
@@ -71,10 +71,10 @@ pub unsafe fn CoCreateInstance<T>(
             ppv: *mut *mut c_void,
         ) -> i32;
     }
-    let mut instance = zeroed();
+    let mut instance = core::mem::zeroed();
     CoCreateInstance(
         class_id,
-        zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
+        core::mem::zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
         transmute(context),
         interface_id,
         &mut instance,
@@ -107,10 +107,10 @@ pub unsafe fn create_instance<T: Id>() -> Result<T, i32> {
             ppv: *mut *mut c_void,
         ) -> i32;
     }
-    let mut instance: *mut c_void = zeroed();
+    let mut instance: *mut c_void = core::mem::zeroed();
     CoCreateInstance(
         &(T::class_id()),
-        zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
+        core::mem::zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
         transmute(ExecutionContext::All),
         &(T::interface_id()),
         &mut instance,

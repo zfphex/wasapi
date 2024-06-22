@@ -1,3 +1,4 @@
+use crate::*;
 use makepad_windows::{
     core::{GUID, HRESULT},
     Win32::{
@@ -5,8 +6,6 @@ use makepad_windows::{
         System::{Com::StructuredStorage::PROPVARIANT_0_0_0, Variant::VARENUM},
     },
 };
-
-use crate::*;
 
 #[repr(C)]
 pub struct PROPERTYKEY {
@@ -81,14 +80,14 @@ impl IPropertyStore {
     #[inline]
     pub unsafe fn GetAt(&self, iProp: u32) -> Result<PROPERTYKEY, i32> {
         let (this, vtable) = self.vtable();
-        let propkey = zeroed();
+        let propkey = core::mem::zeroed();
         (vtable.GetAt)(this, iProp, propkey).as_result(propkey)
     }
 
     #[inline]
     pub unsafe fn GetValue(&self, key: *const PROPERTYKEY) -> Result<PROPVARIANT, i32> {
         let (this, vtable) = self.vtable();
-        let mut propvar = zeroed();
+        let mut propvar = core::mem::zeroed();
         (vtable.GetValue)(this, key, &mut propvar).as_result_owned(propvar)
     }
 
