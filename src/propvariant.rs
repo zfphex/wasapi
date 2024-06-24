@@ -1,6 +1,6 @@
 use crate::*;
 use makepad_windows::{
-    core::{GUID, HRESULT},
+    core::HRESULT,
     Win32::{
         Foundation::DECIMAL,
         System::{Com::StructuredStorage::PROPVARIANT_0_0_0, Variant::VARENUM},

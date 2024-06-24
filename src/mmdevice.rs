@@ -1,5 +1,7 @@
+use std::ops::BitOr;
+
 use crate::*;
-use makepad_windows::core::{GUID, HRESULT};
+use makepad_windows::core::HRESULT;
 
 #[repr(u32)]
 #[derive(Debug)]
@@ -30,7 +32,6 @@ pub enum Role {
     Communications = 2,
 }
 
-//TODO: These are flags but rust is stupid. So no ORing repr(u32) enums.
 #[repr(u32)]
 #[derive(Debug)]
 pub enum DeviceState {
@@ -40,6 +41,19 @@ pub enum DeviceState {
     Unplugged = 8,
     ///Warning: this will cause rust to panic.
     All = 15,
+}
+
+//FIXME:
+impl BitOr for DeviceState {
+    type Output = u32;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        unsafe {
+            let s: u32 = transmute(self);
+            let rhs: u32 = transmute(rhs);
+            s | rhs
+        }
+    }
 }
 
 #[repr(u32)]
@@ -70,62 +84,45 @@ pub struct IUnknownVtbl {
 pub struct IMMDeviceEnumeratorVtbl {
     pub base: IUnknownVtbl,
     pub EnumAudioEndpoints: unsafe extern "system" fn(
-        this: *mut c_void,
+        this: *mut IMMDeviceEnumerator,
         data_flow: DataFlow,       //u32
         device_state: DeviceState, //u32
         devices: *mut *mut c_void,
     ) -> HRESULT,
     pub GetDefaultAudioEndpoint: unsafe extern "system" fn(
-        this: *mut c_void,
+        this: *mut IMMDeviceEnumerator,
         data_flow: DataFlow, //u32
         role: Role,          //u32
         endpoint: *mut *mut c_void,
     ) -> HRESULT,
     pub GetDevice: unsafe extern "system" fn(
-        this: *mut c_void,
+        this: *mut IMMDeviceEnumerator,
         str_id: *const u16,
         device: *mut *mut c_void,
     ) -> HRESULT,
     pub RegisterEndpointNotificationCallback:
-        unsafe extern "system" fn(this: *mut c_void, client: *mut c_void) -> HRESULT,
+        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> HRESULT,
     pub UnregisterEndpointNotificationCallback:
-        unsafe extern "system" fn(this: *mut c_void, client: *mut c_void) -> HRESULT,
+        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> HRESULT,
 }
-
-//I'm thinking of removindg the `Id` trait and the constants.
-//They are essentially meaningless and are never used outside of creation.
-pub const CLSID_MM_DEVICE_ENUMERATOR: GUID =
-    GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
-pub const IID_IMM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
 
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct IMMDeviceEnumerator(*mut c_void);
 
-impl Id for IMMDeviceEnumerator {
-    fn class_id() -> GUID {
-        CLSID_MM_DEVICE_ENUMERATOR
-    }
-
-    fn interface_id() -> GUID {
-        IID_IMM_DEVICE_ENUMERATOR
-    }
-}
-
 impl IMMDeviceEnumerator {
+    ///CLSID_MM_DEVICE_ENUMERATOR
+    pub const CLASS_ID: GUID = GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
+    ///IID_IMM_DEVICE_ENUMERATOR
+    pub const INTERFACE_ID: GUID = GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
+
     pub fn new() -> Result<Self, i32> {
-        unsafe {
-            CoCreateInstance(
-                const { &GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e) },
-                ExecutionContext::All,
-                const { &GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6) },
-            )
-        }
+        unsafe { CoCreateInstance(&Self::CLASS_ID, ExecutionContext::All, &Self::INTERFACE_ID) }
     }
 
     #[inline]
-    pub unsafe fn vtable(&self) -> (*mut c_void, &IMMDeviceEnumeratorVtbl) {
-        let this: *mut c_void = transmute_copy(self);
+    pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceEnumeratorVtbl) {
+        let this: *mut Self = transmute_copy(self);
         (this, (&**(this as *mut *mut IMMDeviceEnumeratorVtbl)))
     }
 
@@ -133,6 +130,7 @@ impl IMMDeviceEnumerator {
     pub unsafe fn EnumAudioEndpoints(
         &self,
         dataFlow: DataFlow,
+        //TODO: Allow for bitflags here.
         device_state: DeviceState,
     ) -> Result<IMMDeviceCollection, i32> {
         let mut devices = core::mem::zeroed();
@@ -188,7 +186,7 @@ pub struct IMMDeviceVtbl {
     pub Activate: unsafe extern "system" fn(
         this: *mut IMMDevice,
         iid: *const GUID,
-        cls_ctx: u32,
+        execution_context: ExecutionContext,
         activation_params: *mut PROPVARIANT,
         interface: *mut *mut c_void,
     ) -> i32,
@@ -221,26 +219,29 @@ impl IMMDevice {
 
     #[inline]
     pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceVtbl) {
-        let this: *mut IMMDevice = transmute_copy(self);
+        let this: *mut Self = transmute_copy(self);
         (this, (&**(this as *mut *mut IMMDeviceVtbl)))
     }
 
-    // #[inline]
-    // pub unsafe fn Activate(
-    //     &self,
-    //     iid: REFIID,
-    //     dwClsCtx: DWORD,
-    //     pActivationParams: *mut PROPVARIANT,
-    //     ppInterface: *mut LPVOID,
-    // ) -> HRESULT {
-    //     ((*self.lpVtbl).Activate)(
-    //         self as *const _ as *mut _,
-    //         iid,
-    //         dwClsCtx,
-    //         pActivationParams,
-    //         ppInterface,
-    //     )
-    // }
+    #[inline]
+    pub unsafe fn Activate<T: Interface>(
+        &self,
+        execution_context: ExecutionContext,
+    ) -> Result<T, i32> {
+        let (this, vtable) = self.vtable();
+        let mut interface = core::mem::zeroed();
+
+        (vtable.Activate)(
+            this,
+            &T::id(),
+            execution_context,
+            //DirectSound is not supported since this is set to null.
+            core::mem::zeroed(),
+            // core::ptr::null_mut(),
+            &mut interface,
+        )
+        .as_result(interface)
+    }
 
     #[inline]
     pub unsafe fn OpenPropertyStore(
@@ -258,7 +259,7 @@ impl IMMDevice {
     // }
 
     // #[inline]
-    // pub unsafe fn GetState(&self, pdwState: *mut DWORD) -> HRESULT {
+    // pub unsafe fn GetState(&self, pdwState: *mut u32) -> HRESULT {
     //     ((*self.lpVtbl).GetState)(self as *const _ as *mut _, pdwState)
     // }
 }
@@ -284,7 +285,7 @@ pub struct IMMDeviceCollection(*mut c_void);
 impl IMMDeviceCollection {
     #[inline]
     pub unsafe fn vtable(&self) -> (*mut Self, &IMMDeviceCollectionVtbl) {
-        let this: *mut IMMDeviceCollection = transmute_copy(self);
+        let this: *mut Self = transmute_copy(self);
         (this, (&**(this as *mut *mut IMMDeviceCollectionVtbl)))
     }
 

@@ -1,5 +1,4 @@
 use crate::*;
-use makepad_windows::core::GUID;
 
 ///https://learn.microsoft.com/en-us/windows/win32/api/objbase/ne-objbase-coinit
 #[repr(u32)]
@@ -24,6 +23,7 @@ pub enum ExecutionContext {
     LocalServer = 0x4,
     InprocServer16 = 0x8,
     RemoteServer = 0x10,
+    ///CLSCTX_ALL
     All = 0x17,
     InprocHandler16 = 0x20,
     Reserved1 = 0x40,
@@ -77,42 +77,6 @@ pub unsafe fn CoCreateInstance<T>(
         core::mem::zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
         transmute(context),
         interface_id,
-        &mut instance,
-    )
-    .as_result(instance)
-}
-
-pub trait Id {
-    fn class_id() -> GUID;
-    fn interface_id() -> GUID;
-}
-
-/// Not sure which ones I should keep?
-///```
-/// let enumerator = IMMDeviceEnumerator::new()?;
-/// let enumerator = create_instance::<IMMDeviceEnumerator>()?;
-/// let enumerator: IMMDeviceEnumerator = CoCreateInstance(
-///     &CLSID_MM_DEVICE_ENUMERATOR,
-///     ExecutionContext::All,
-///     &IID_IMM_DEVICE_ENUMERATOR,
-/// )?;
-/// ```
-pub unsafe fn create_instance<T: Id>() -> Result<T, i32> {
-    extern "system" {
-        pub fn CoCreateInstance(
-            rclsid: *const GUID,
-            pUnkOuter: *mut *mut c_void,
-            dwClsContext: u32,
-            riid: *const GUID,
-            ppv: *mut *mut c_void,
-        ) -> i32;
-    }
-    let mut instance: *mut c_void = core::mem::zeroed();
-    CoCreateInstance(
-        &(T::class_id()),
-        core::mem::zeroed(), //Note that this could be null_mut(), I'm not sure which I should use...
-        transmute(ExecutionContext::All),
-        &(T::interface_id()),
         &mut instance,
     )
     .as_result(instance)
