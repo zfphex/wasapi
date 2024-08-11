@@ -14,4 +14,5 @@ unsafe extern "system" {
         bInitialState: i32,
         lpName: *const i8,
     ) -> *mut c_void;
+    fn WaitForSingleObject(hHandle: *mut c_void, dwMilliseconds: u32) -> u32;
 }

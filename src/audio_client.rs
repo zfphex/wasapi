@@ -175,13 +175,13 @@ impl IAudioClient {
     }
 
     #[inline]
-    pub unsafe fn Stop(&self) ->  Result<(), i32> {
+    pub unsafe fn Stop(&self) -> Result<(), i32> {
         let (this, vtable) = self.vtable();
         (vtable.Stop)(this).as_result_owned(())
     }
 
     #[inline]
-    pub unsafe fn Reset(&self) ->  Result<(), i32> {
+    pub unsafe fn Reset(&self) -> Result<(), i32> {
         let (this, vtable) = self.vtable();
         (vtable.Reset)(this).as_result_owned(())
     }
@@ -193,12 +193,11 @@ impl IAudioClient {
     }
 
     #[inline]
-    pub unsafe fn GetService(
-        &self,
-    ) -> Result<IAudioRenderClient, i32> {
+    pub unsafe fn GetService(&self) -> Result<IAudioRenderClient, i32> {
         let (this, vtable) = self.vtable();
         let mut service = core::ptr::null_mut();
-        (vtable.GetService)(this, &IAudioRenderClient::id() as *const GUID, &mut service).as_result(service)
+        (vtable.GetService)(this, &IAudioRenderClient::id() as *const GUID, &mut service)
+            .as_result(service)
     }
 }
 
@@ -231,13 +230,24 @@ impl IAudioCaptureClient {
         (this, (&**(this as *mut *mut IAudioCaptureClientVtbl)))
     }
 
-    pub unsafe fn GetBuffer(&self, ppdata: *mut *mut u8, pnumframestoread: *mut u32, pdwflags: *mut u32, pu64deviceposition: Option<*mut u64>, pu64qpcposition: Option<*mut u64>) -> Result<(), i32> {
+    pub unsafe fn GetBuffer(
+        &self,
+        ppdata: *mut *mut u8,
+        pnumframestoread: *mut u32,
+        pdwflags: *mut u32,
+        pu64deviceposition: Option<*mut u64>,
+        pu64qpcposition: Option<*mut u64>,
+    ) -> Result<(), i32> {
         let (this, vtable) = self.vtable();
-        (vtable.GetBuffer)(this, ppdata, pnumframestoread, pdwflags
-        ,transmute(pu64deviceposition.unwrap_or(core::ptr::null_mut())) ,
-            transmute(pu64qpcposition.unwrap_or(core::ptr::null_mut()))
-        
-        ).as_result_owned(())
+        (vtable.GetBuffer)(
+            this,
+            ppdata,
+            pnumframestoread,
+            pdwflags,
+            transmute(pu64deviceposition.unwrap_or(core::ptr::null_mut())),
+            transmute(pu64qpcposition.unwrap_or(core::ptr::null_mut())),
+        )
+        .as_result_owned(())
     }
 
     pub unsafe fn ReleaseBuffer(&self, numframesread: u32) -> Result<(), i32> {
@@ -252,14 +262,11 @@ impl IAudioCaptureClient {
     }
 }
 
-
 impl Interface for IAudioCaptureClient {
     fn id() -> GUID {
         Self::INTERFACE_ID
     }
 }
-
-
 
 #[rustfmt::skip] 
 #[repr(C)]
@@ -287,7 +294,7 @@ impl IAudioRenderClient {
         (vtable.GetBuffer)(this, numframesrequested, &mut buffer).as_result(buffer)
     }
 
-    pub unsafe fn ReleaseBuffer(&self, numframeswritten: u32, flags: u32) -> Result<(), i32>{
+    pub unsafe fn ReleaseBuffer(&self, numframeswritten: u32, flags: u32) -> Result<(), i32> {
         let (this, vtable) = self.vtable();
         (vtable.ReleaseBuffer)(this, numframeswritten, flags).as_result_owned(())
     }

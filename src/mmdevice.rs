@@ -1,7 +1,6 @@
 use std::ops::BitOr;
 
 use crate::*;
-use makepad_windows::core::HRESULT;
 
 #[repr(u32)]
 #[derive(Debug)]
@@ -67,17 +66,7 @@ pub enum StorageAccessMode {
 //Something to do with propvariants idk. Probably the number in the enum/vtable that is LPWSTR.
 pub const VT_LPWSTR: u16 = 31;
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct IUnknownVtbl {
-    pub QueryInterface: unsafe extern "system" fn(
-        this: *mut std::ffi::c_void,
-        iid: &GUID,
-        interface: *mut *const std::ffi::c_void,
-    ) -> HRESULT,
-    pub AddRef: unsafe extern "system" fn(this: *mut std::ffi::c_void) -> u32,
-    pub Release: unsafe extern "system" fn(this: *mut std::ffi::c_void) -> u32,
-}
+
 
 #[repr(C)]
 #[derive(Debug)]
@@ -88,22 +77,22 @@ pub struct IMMDeviceEnumeratorVtbl {
         data_flow: DataFlow,       //u32
         device_state: DeviceState, //u32
         devices: *mut *mut c_void,
-    ) -> HRESULT,
+    ) -> i32,
     pub GetDefaultAudioEndpoint: unsafe extern "system" fn(
         this: *mut IMMDeviceEnumerator,
         data_flow: DataFlow, //u32
         role: Role,          //u32
         endpoint: *mut *mut c_void,
-    ) -> HRESULT,
+    ) -> i32,
     pub GetDevice: unsafe extern "system" fn(
         this: *mut IMMDeviceEnumerator,
         str_id: *const u16,
         device: *mut *mut c_void,
-    ) -> HRESULT,
+    ) -> i32,
     pub RegisterEndpointNotificationCallback:
-        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> HRESULT,
+        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> i32,
     pub UnregisterEndpointNotificationCallback:
-        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> HRESULT,
+        unsafe extern "system" fn(this: *mut IMMDeviceEnumerator, client: *mut c_void) -> i32,
 }
 
 #[repr(transparent)]
@@ -160,7 +149,7 @@ impl IMMDeviceEnumerator {
     // pub unsafe fn RegisterEndpointNotificationCallback(
     //     &self,
     //     pClient: *mut IMMNotificationClient,
-    // ) -> HRESULT {
+    // ) -> i32 {
     //     // ((*self.vtable).RegisterEndpointNotificationCallback)(
     //     //     self as *const _ as *mut _,
     //     //     pClient,
@@ -171,7 +160,7 @@ impl IMMDeviceEnumerator {
     // pub unsafe fn UnregisterEndpointNotificationCallback(
     //     &self,
     //     pClient: *mut IMMNotificationClient,
-    // ) -> HRESULT {
+    // ) -> i32 {
     //     // ((*self.vtable).UnregisterEndpointNotificationCallback)(
     //     //     self as *const _ as *mut _,
     //     //     pClient,
@@ -213,7 +202,8 @@ impl IMMDevice {
             let prop = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME).unwrap();
             assert!(prop.Anonymous.Anonymous.vt.0 == VT_LPWSTR); //TODO: This will never fail remove?
             let data = prop.Anonymous.Anonymous.Anonymous.pwszVal;
-            data.to_string().unwrap()
+            // String::from_utf16(v)
+            wide_string(data)
         }
     }
 
@@ -254,12 +244,12 @@ impl IMMDevice {
     }
 
     // #[inline]
-    // pub unsafe fn GetId(&self, ppstrId: *mut LPWSTR) -> HRESULT {
+    // pub unsafe fn GetId(&self, ppstrId: *mut LPWSTR) -> i32 {
     //     ((*self.lpVtbl).GetId)(self as *const _ as *mut _, ppstrId)
     // }
 
     // #[inline]
-    // pub unsafe fn GetState(&self, pdwState: *mut u32) -> HRESULT {
+    // pub unsafe fn GetState(&self, pdwState: *mut u32) -> i32 {
     //     ((*self.lpVtbl).GetState)(self as *const _ as *mut _, pdwState)
     // }
 }
@@ -267,15 +257,13 @@ impl IMMDevice {
 #[repr(C)]
 pub struct IMMDeviceCollectionVtbl {
     pub parent: IUnknownVtbl,
-    pub GetCount: unsafe extern "system" fn(
-        this: *mut IMMDeviceCollection,
-        device_count: *const u32,
-    ) -> HRESULT,
+    pub GetCount:
+        unsafe extern "system" fn(this: *mut IMMDeviceCollection, device_count: *const u32) -> i32,
     pub Item: unsafe extern "system" fn(
         this: *mut IMMDeviceCollection,
         device_index: u32,
         device: *mut *mut c_void,
-    ) -> HRESULT,
+    ) -> i32,
 }
 
 #[repr(transparent)]

@@ -52,6 +52,8 @@ fn main() {
         let format =
             (client.GetMixFormat().unwrap() as *const _ as *const WAVEFORMATEXTENSIBLE).read();
 
+        let block_align = format.Format.nBlockAlign;
+
         client
             .Initialize(
                 ShareMode::Shared,
@@ -68,8 +70,19 @@ fn main() {
         assert!(!event.is_null());
         client.SetEventHandle(event as isize).unwrap();
 
-        let render_client: IAudioRenderClient = client.GetService().unwrap();
+        let render: IAudioRenderClient = client.GetService().unwrap();
 
         client.Start().unwrap();
+
+        let padding = client.GetCurrentPadding().unwrap();
+        let size = client.GetBufferSize().unwrap();
+        let nframes = size - padding - 1;
+        let buffer = render.GetBuffer(nframes).unwrap();
+
+        let size = nframes as usize * block_align  as usize;
+
+        let slice = core::slice::from_raw_parts(buffer, size);
+        dbg!(slice.len());
+
     }
 }

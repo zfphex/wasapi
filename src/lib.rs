@@ -1,4 +1,4 @@
-#![allow(non_snake_case, dead_code)]
+#![allow(non_snake_case, dead_code, non_camel_case_types)]
 
 //TODO: Will this be compiled out?
 #[link(name = "ole32")]
@@ -8,19 +8,24 @@ extern "system" {}
 pub mod audio_client;
 pub mod com;
 pub mod mmdevice;
-pub mod propvariant;
-pub mod waveformat;
 pub mod other;
+pub mod propvariant;
+pub mod unknown;
+pub mod waveformat;
 
 pub use audio_client::*;
 pub use com::*;
 pub use mmdevice::*;
-pub use propvariant::*;
-pub use waveformat::*;
 pub use other::*;
+pub use propvariant::*;
+pub use unknown::*;
+pub use waveformat::*;
 
 pub use core::ffi::c_void;
 pub use core::mem::{transmute, transmute_copy};
+
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 
 pub trait Interface {
     fn id() -> GUID;
@@ -71,13 +76,18 @@ impl WindowsResult for i32 {
     }
 }
 
-impl WindowsResult for makepad_windows::core::HRESULT {
-    #[track_caller]
-    fn as_result<T, P>(self, pointer: *mut P) -> Result<T, i32> {
-        self.0.as_result(pointer)
-    }
+pub fn wide_string(wide: *mut u16) -> String {
+    unsafe {
+        assert!(!wide.is_null());
 
-    fn as_result_owned<T>(self, owned: T) -> Result<T, i32> {
-        self.0.as_result_owned(owned)
+        let slice = std::slice::from_raw_parts(wide, {
+            let mut len = 0;
+            while *wide.offset(len) != 0 {
+                len += 1;
+            }
+            len as usize
+        });
+
+        OsString::from_wide(slice).to_string_lossy().to_string()
     }
 }
