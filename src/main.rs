@@ -68,7 +68,7 @@ fn main() {
         assert!(!event.is_null());
         client.SetEventHandle(event as isize).unwrap();
 
-        let render_client: IAudioRenderClient = client.GetService().unwrap(); 
+        let render_client: IAudioRenderClient = client.GetService().unwrap();
 
         client.Start().unwrap();
     }
