@@ -79,10 +79,9 @@ fn main() {
         let nframes = size - padding - 1;
         let buffer = render.GetBuffer(nframes).unwrap();
 
-        let size = nframes as usize * block_align  as usize;
+        let size = nframes as usize * block_align as usize;
 
         let slice = core::slice::from_raw_parts(buffer, size);
         dbg!(slice.len());
-
     }
 }

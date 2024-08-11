@@ -7,6 +7,7 @@ pub enum ShareMode {
 }
 
 //https://learn.microsoft.com/en-us/windows/win32/coreaudio/audclnt-streamflags-xxx-constants
+pub const AUDCLNT_SHAREMODE_SHARED: u32 = 0;
 pub const AUDCLNT_STREAMFLAGS_CROSSPROCESS: u32 = 0x00010000;
 pub const AUDCLNT_STREAMFLAGS_LOOPBACK: u32 = 0x00020000;
 pub const AUDCLNT_STREAMFLAGS_EVENTCALLBACK: u32 = 0x00040000;

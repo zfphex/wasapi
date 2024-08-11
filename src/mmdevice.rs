@@ -66,8 +66,6 @@ pub enum StorageAccessMode {
 //Something to do with propvariants idk. Probably the number in the enum/vtable that is LPWSTR.
 pub const VT_LPWSTR: u16 = 31;
 
-
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct IMMDeviceEnumeratorVtbl {
@@ -189,7 +187,7 @@ pub struct IMMDeviceVtbl {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IMMDevice(*mut c_void);
 
 impl IMMDevice {
