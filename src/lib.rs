@@ -10,12 +10,14 @@ pub mod com;
 pub mod mmdevice;
 pub mod propvariant;
 pub mod waveformat;
+pub mod other;
 
 pub use audio_client::*;
 pub use com::*;
 pub use mmdevice::*;
 pub use propvariant::*;
 pub use waveformat::*;
+pub use other::*;
 
 pub use core::ffi::c_void;
 pub use core::mem::{transmute, transmute_copy};

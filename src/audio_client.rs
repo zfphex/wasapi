@@ -19,6 +19,7 @@ pub const AUDCLNT_SESSIONFLAGS_EXPIREWHENUNOWNED: u32 = 0x10000000;
 pub const AUDCLNT_SESSIONFLAGS_DISPLAY_HIDE: u32 = 0x20000000;
 pub const AUDCLNT_SESSIONFLAGS_DISPLAY_HIDEWHENEXPIRED: u32 = 0x40000000;
 
+#[rustfmt::skip] 
 #[repr(C)]
 pub struct IAudioClientVtbl {
     pub parent: IUnknownVtbl,
@@ -31,12 +32,9 @@ pub struct IAudioClientVtbl {
         pFormat: *const WAVEFORMATEX,
         AudioSessionGuid: *const GUID,
     ) -> i32,
-    pub GetBufferSize:
-        unsafe extern "system" fn(this: *mut IAudioClient, pNumBufferFrames: *mut u32) -> i32,
-    pub GetStreamLatency:
-        unsafe extern "system" fn(this: *mut IAudioClient, phnsLatency: *mut i64) -> i32,
-    pub GetCurrentPadding:
-        unsafe extern "system" fn(this: *mut IAudioClient, pNumPaddingFrames: *mut u32) -> i32,
+    pub GetBufferSize: unsafe extern "system" fn(this: *mut IAudioClient, pNumBufferFrames: *mut u32) -> i32,
+    pub GetStreamLatency: unsafe extern "system" fn(this: *mut IAudioClient, phnsLatency: *mut i64) -> i32,
+    pub GetCurrentPadding: unsafe extern "system" fn(this: *mut IAudioClient, pNumPaddingFrames: *mut u32) -> i32,
     pub IsFormatSupported: unsafe extern "system" fn(
         this: *mut IAudioClient,
         ShareMode: i32,
@@ -56,13 +54,28 @@ pub struct IAudioClientVtbl {
     pub Start: unsafe extern "system" fn(this: *mut IAudioClient) -> i32,
     pub Stop: unsafe extern "system" fn(this: *mut IAudioClient) -> i32,
     pub Reset: unsafe extern "system" fn(this: *mut IAudioClient) -> i32,
-    pub SetEventHandle:
-        unsafe extern "system" fn(this: *mut IAudioClient, eventHandle: isize) -> i32,
+    pub SetEventHandle: unsafe extern "system" fn(this: *mut IAudioClient, eventHandle: isize) -> i32,
     pub GetService: unsafe extern "system" fn(
         this: *mut IAudioClient,
         riid: *const GUID,
         ppv: *mut *mut c_void,
     ) -> i32,
+}
+
+#[repr(C)]
+pub struct IAudioClient2Vtbl {
+    pub parent: IAudioClientVtbl,
+    // pub IsOffloadCapable: unsafe extern "system" fn(_: *mut c_void, _: AUDIO_STREAM_CATEGORY, _: *mut BOOL) -> HRESULT,
+    // pub SetClientProperties: unsafe extern "system" fn(_: *mut c_void, _: *const AudioClientProperties) -> HRESULT,
+    // pub GetBufferSizeLimits: unsafe extern "system" fn(_: *mut c_void, _: *const WAVEFORMATEX, _: BOOL, _: *mut i64, _: *mut i64) -> HRESULT,
+}
+
+#[repr(C)]
+pub struct IAudioClient3Vtbl {
+    pub parent: IAudioClient2Vtbl,
+    // pub GetSharedModeEnginePeriod: unsafe extern "system" fn(_: *mut c_void, _: *const WAVEFORMATEX, _: *mut u32, _: *mut u32, _: *mut u32, _: *mut u32) -> HRESULT,
+    // pub GetCurrentSharedModeEnginePeriod: unsafe extern "system" fn(_: *mut c_void, _: *mut *mut WAVEFORMATEX, _: *mut u32) -> HRESULT,
+    // pub InitializeSharedAudioStream: unsafe extern "system" fn(_: *mut c_void, _: u32, _: u32, _: *const WAVEFORMATEX, _: *const GUID) -> HRESULT,
 }
 
 // use makepad_windows::Win32::Media::Audio::IAudioClient;
@@ -88,7 +101,7 @@ impl IAudioClient {
         buffer_duration: i64,
         periodicity: i64,
         wave_format: *const WAVEFORMATEX,
-        guid: *const GUID,
+        guid: Option<*const GUID>,
     ) -> Result<(), i32> {
         let (this, vtable) = self.vtable();
         (vtable.Initialize)(
@@ -98,7 +111,7 @@ impl IAudioClient {
             buffer_duration,
             periodicity,
             wave_format,
-            guid,
+            guid.unwrap_or_else(|| core::mem::zeroed()),
         )
         .as_result_owned(())
     }
@@ -148,31 +161,157 @@ impl IAudioClient {
         (vtable.GetDevicePeriod)(this, &mut default_device_period, &mut min_device_period)
             .as_result_owned((default_device_period, min_device_period))
     }
-    // #[inline]
-    // pub unsafe fn Start(&self) -> HRESULT {
-    //     ((*self.lpVtbl).Start)(self as *const _ as *mut _)
-    // }
-    // #[inline]
-    // pub unsafe fn Stop(&self) -> HRESULT {
-    //     ((*self.lpVtbl).Stop)(self as *const _ as *mut _)
-    // }
-    // #[inline]
-    // pub unsafe fn Reset(&self) -> HRESULT {
-    //     ((*self.lpVtbl).Reset)(self as *const _ as *mut _)
-    // }
-    // #[inline]
-    // pub unsafe fn SetEventHandle(&self, eventHandle: isize) -> HRESULT {
-    //     ((*self.lpVtbl).SetEventHandle)(self as *const _ as *mut _, eventHandle)
-    // }
-    // #[inline]
-    // pub unsafe fn GetService(&self, riid: *const GUID, ppv: *mut *mut c_void) -> HRESULT {
-    //     ((*self.lpVtbl).GetService)(self as *const _ as *mut _, riid, ppv)
-    // }
+
+    #[inline]
+    pub unsafe fn Start(&self) -> Result<(), i32> {
+        let (this, vtable) = self.vtable();
+        (vtable.Start)(this).as_result_owned(())
+    }
+
+    #[inline]
+    pub unsafe fn Stop(&self) ->  Result<(), i32> {
+        let (this, vtable) = self.vtable();
+        (vtable.Stop)(this).as_result_owned(())
+    }
+
+    #[inline]
+    pub unsafe fn Reset(&self) ->  Result<(), i32> {
+        let (this, vtable) = self.vtable();
+        (vtable.Reset)(this).as_result_owned(())
+    }
+
+    #[inline]
+    pub unsafe fn SetEventHandle(&self, event_handle: isize) -> Result<(), i32> {
+        let (this, vtable) = self.vtable();
+        (vtable.SetEventHandle)(this, event_handle).as_result_owned(())
+    }
+
+    #[inline]
+    pub unsafe fn GetService(
+        &self,
+    ) -> Result<IAudioRenderClient, i32> {
+        let (this, vtable) = self.vtable();
+        let mut service = core::ptr::null_mut();
+        (vtable.GetService)(this, &IAudioRenderClient::id() as *const GUID, &mut service).as_result(service)
+    }
 }
 
 impl Interface for IAudioClient {
     #[inline]
     fn id() -> GUID {
         IAudioClient::INTERFACE_ID
+    }
+}
+
+// #[repr(C)]
+// pub struct IAudioCaptureClient_Vtbl {
+//     pub base__: ::windows_core::IUnknown_Vtbl,
+//     pub GetBuffer: unsafe extern "system" fn(this: *mut ::core::ffi::c_void, ppdata: *mut *mut u8, pnumframestoread: *mut u32, pdwflags: *mut u32, pu64deviceposition: *mut u64, pu64qpcposition: *mut u64) -> ::windows_core::HRESULT,
+//     pub ReleaseBuffer: unsafe extern "system" fn(this: *mut ::core::ffi::c_void, numframesread: u32) -> ::windows_core::HRESULT,
+//     pub GetNextPacketSize: unsafe extern "system" fn(this: *mut ::core::ffi::c_void, pnumframesinnextpacket: *mut u32) -> ::windows_core::HRESULT,
+// }
+
+// pub trait IAudioCaptureClient_Impl: Sized {
+//     fn GetBuffer(&self, ppdata: *mut *mut u8, pnumframestoread: *mut u32, pdwflags: *mut u32, pu64deviceposition: *mut u64, pu64qpcposition: *mut u64) -> ::windows_core::Result<()>;
+//     fn ReleaseBuffer(&self, numframesread: u32) -> ::windows_core::Result<()>;
+//     fn GetNextPacketSize(&self) -> ::windows_core::Result<u32>;
+// }
+
+// impl IAudioCaptureClient_Vtbl {
+//     pub const fn new<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>() -> IAudioCaptureClient_Vtbl {
+//         unsafe extern "system" fn GetBuffer<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, ppdata: *mut *mut u8, pnumframestoread: *mut u32, pdwflags: *mut u32, pu64deviceposition: *mut u64, pu64qpcposition: *mut u64) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             this.GetBuffer(::core::mem::transmute_copy(&ppdata), ::core::mem::transmute_copy(&pnumframestoread), ::core::mem::transmute_copy(&pdwflags), ::core::mem::transmute_copy(&pu64deviceposition), ::core::mem::transmute_copy(&pu64qpcposition)).into()
+//         }
+//         unsafe extern "system" fn ReleaseBuffer<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, numframesread: u32) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             this.ReleaseBuffer(::core::mem::transmute_copy(&numframesread)).into()
+//         }
+//         unsafe extern "system" fn GetNextPacketSize<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, pnumframesinnextpacket: *mut u32) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             match this.GetNextPacketSize() {
+//                 ::core::result::Result::Ok(ok__) => {
+//                     ::core::ptr::write(pnumframesinnextpacket, ::core::mem::transmute(ok__));
+//                     ::windows_core::HRESULT(0)
+//                 }
+//                 ::core::result::Result::Err(err) => err.into(),
+//             }
+//         }
+//         Self {
+//             base__: ::windows_core::IUnknown_Vtbl::new::<Identity, OFFSET>(),
+//             GetBuffer: GetBuffer::<Identity, Impl, OFFSET>,
+//             ReleaseBuffer: ReleaseBuffer::<Identity, Impl, OFFSET>,
+//             GetNextPacketSize: GetNextPacketSize::<Identity, Impl, OFFSET>,
+//         }
+//     }
+//     pub fn matches(iid: &::windows_core::GUID) -> bool {
+//         iid == &<IAudioCaptureClient as ::windows_core::ComInterface>::IID
+//     }
+// }
+
+// impl IAudioCaptureClient_Vtbl {
+//     pub const fn new<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>() -> IAudioCaptureClient_Vtbl {
+//         unsafe extern "system" fn GetBuffer<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, ppdata: *mut *mut u8, pnumframestoread: *mut u32, pdwflags: *mut u32, pu64deviceposition: *mut u64, pu64qpcposition: *mut u64) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             this.GetBuffer(::core::mem::transmute_copy(&ppdata), ::core::mem::transmute_copy(&pnumframestoread), ::core::mem::transmute_copy(&pdwflags), ::core::mem::transmute_copy(&pu64deviceposition), ::core::mem::transmute_copy(&pu64qpcposition)).into()
+//         }
+//         unsafe extern "system" fn ReleaseBuffer<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, numframesread: u32) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             this.ReleaseBuffer(::core::mem::transmute_copy(&numframesread)).into()
+//         }
+//         unsafe extern "system" fn GetNextPacketSize<Identity: ::windows_core::IUnknownImpl<Impl = Impl>, Impl: IAudioCaptureClient_Impl, const OFFSET: isize>(this: *mut ::core::ffi::c_void, pnumframesinnextpacket: *mut u32) -> ::windows_core::HRESULT {
+//             let this = (this as *const *const ()).offset(OFFSET) as *const Identity;
+//             let this = (*this).get_impl();
+//             match this.GetNextPacketSize() {
+//                 ::core::result::Result::Ok(ok__) => {
+//                     ::core::ptr::write(pnumframesinnextpacket, ::core::mem::transmute(ok__));
+//                     ::windows_core::HRESULT(0)
+//                 }
+//                 ::core::result::Result::Err(err) => err.into(),
+//             }
+//         }
+//         Self {
+//             base__: ::windows_core::IUnknown_Vtbl::new::<Identity, OFFSET>(),
+//             GetBuffer: GetBuffer::<Identity, Impl, OFFSET>,
+//             ReleaseBuffer: ReleaseBuffer::<Identity, Impl, OFFSET>,
+//             GetNextPacketSize: GetNextPacketSize::<Identity, Impl, OFFSET>,
+//         }
+//     }
+//     pub fn matches(iid: &::windows_core::GUID) -> bool {
+//         iid == &<IAudioCaptureClient as ::windows_core::ComInterface>::IID
+//     }
+// }
+
+#[rustfmt::skip] 
+#[repr(C)]
+pub struct IAudioRenderClientVtbl {
+    pub parent: IUnknownVtbl,
+    pub GetBuffer: unsafe extern "system" fn(this: *mut c_void, numframesrequested: u32, ppdata: *mut *mut u8) -> i32,
+    pub ReleaseBuffer: unsafe extern "system" fn(this: *mut c_void, numframeswritten: u32, dwflags: u32) -> i32,
+}
+
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct IAudioRenderClient(*mut c_void);
+
+impl IAudioRenderClient {
+    pub const INTERFACE_ID: GUID = GUID::from_u128(0xf294acfc_3146_4483_a7bf_addca7c260e2);
+    // pub unsafe fn GetBuffer(&self, numframesrequested: u32) -> ::windows_core::Result<*mut u8> {
+    //     let mut result__ = ::std::mem::zeroed();
+    //     (::windows_core::Interface::vtable(self).GetBuffer)(::windows_core::Interface::as_raw(self), numframesrequested, &mut result__).from_abi(result__)
+    // }
+    // pub unsafe fn ReleaseBuffer(&self, numframeswritten: u32, dwflags: u32) -> ::windows_core::Result<()> {
+    //     (::windows_core::Interface::vtable(self).ReleaseBuffer)(::windows_core::Interface::as_raw(self), numframeswritten, dwflags).ok()
+    // }
+}
+
+impl Interface for IAudioRenderClient {
+    fn id() -> GUID {
+        Self::INTERFACE_ID
     }
 }

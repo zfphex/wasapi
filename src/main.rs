@@ -49,8 +49,8 @@ fn main() {
         //     .unwrap();
 
         let (default, _) = client.GetDevicePeriod().unwrap();
-        let format = client.GetMixFormat().unwrap();
-        dbg!(*format);
+        let format =
+            (client.GetMixFormat().unwrap() as *const _ as *const WAVEFORMATEXTENSIBLE).read();
 
         client
             .Initialize(
@@ -60,9 +60,16 @@ fn main() {
                     | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
                 default,
                 default,
-                format,
-                core::mem::zeroed(),
+                &format as *const _ as *const WAVEFORMATEX,
+                None,
             )
             .unwrap();
+        let event = CreateEventA(core::mem::zeroed(), 0, 0, core::mem::zeroed());
+        assert!(!event.is_null());
+        client.SetEventHandle(event as isize).unwrap();
+
+        let render_client: IAudioRenderClient = client.GetService().unwrap(); 
+
+        client.Start().unwrap();
     }
 }
