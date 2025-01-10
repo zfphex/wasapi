@@ -1,6 +1,5 @@
 #![allow(non_snake_case, dead_code, non_camel_case_types)]
 
-//TODO: Will this be compiled out?
 #[link(name = "ole32")]
 #[link(name = "user32")]
 extern "system" {}
