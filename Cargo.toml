@@ -3,4 +3,8 @@ name = "wasapi"
 version = "0.1.0"
 edition = "2021"
 
+# [features]
+# profile = ["mini/profile"]
+
 [dependencies]
+# mini = { version = "0.1.0", path = "../mini"}
