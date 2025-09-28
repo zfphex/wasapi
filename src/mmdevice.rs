@@ -190,6 +190,9 @@ pub struct IMMDeviceVtbl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IMMDevice(*mut c_void);
 
+unsafe impl Send for IMMDevice {}
+unsafe impl Sync for IMMDevice {}
+
 impl IMMDevice {
     //TODO: Return a result.
     pub fn name(&self) -> String {
