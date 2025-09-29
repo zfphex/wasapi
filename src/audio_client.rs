@@ -85,6 +85,9 @@ pub struct IAudioClient3Vtbl {
 #[derive(Debug)]
 pub struct IAudioClient(*mut c_void);
 
+unsafe impl Send for IAudioClient {}
+unsafe impl Sync for IAudioClient {}
+
 impl IAudioClient {
     pub const INTERFACE_ID: GUID = GUID::from_u128(0x1cb9ad4c_dbfa_4c32_b178_c2f568a703b2);
 
@@ -223,6 +226,9 @@ pub struct IAudioCaptureClientVtbl {
 #[derive(Debug)]
 pub struct IAudioCaptureClient(*mut c_void);
 
+unsafe impl Send for IAudioCaptureClient {}
+unsafe impl Sync for IAudioCaptureClient {}
+
 impl IAudioCaptureClient {
     pub const INTERFACE_ID: GUID = GUID::from_u128(0xc8adbd64_e71e_48a0_a4de_185c395cd317);
 
@@ -280,6 +286,9 @@ pub struct IAudioRenderClientVtbl {
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct IAudioRenderClient(*mut c_void);
+
+unsafe impl Send for IAudioRenderClient {}
+unsafe impl Sync for IAudioRenderClient {}
 
 impl IAudioRenderClient {
     pub const INTERFACE_ID: GUID = GUID::from_u128(0xf294acfc_3146_4483_a7bf_addca7c260e2);

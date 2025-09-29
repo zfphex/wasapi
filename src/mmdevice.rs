@@ -97,6 +97,9 @@ pub struct IMMDeviceEnumeratorVtbl {
 #[derive(Debug)]
 pub struct IMMDeviceEnumerator(*mut c_void);
 
+unsafe impl Send for IMMDeviceEnumerator {}
+unsafe impl Sync for IMMDeviceEnumerator {}
+
 impl IMMDeviceEnumerator {
     ///CLSID_MM_DEVICE_ENUMERATOR
     pub const CLASS_ID: GUID = GUID::from_u128(0xbcde0395_e52f_467c_8e3d_c4579291692e);
@@ -270,6 +273,9 @@ pub struct IMMDeviceCollectionVtbl {
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct IMMDeviceCollection(*mut c_void);
+
+unsafe impl Send for IMMDeviceCollection {}
+unsafe impl Sync for IMMDeviceCollection {}
 
 impl IMMDeviceCollection {
     #[inline]
